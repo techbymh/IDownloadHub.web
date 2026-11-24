@@ -1,36 +1,130 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>iDownloadWeb - ভিডিও / অডিও ডাউনলোডার</title>
+<meta name="theme-color" content="#02040d">
+<meta name="description" content="iDownloadWeb: free online video and audio downloader.">
+<title>iDownloadWeb – Download Videos & Audio Online</title>
 <style>
-  body{font-family:system-ui,sans-serif;max-width:640px;margin:0 auto;padding:16px;background:#f6f7f9;color:#111}
-  h1{font-size:1.4rem;text-align:center}
-  .row{display:flex;gap:8px}
-  input{flex:1;padding:12px;border:1px solid #ccc;border-radius:8px;font-size:1rem}
-  button{padding:12px 18px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-size:1rem}
-  .card{background:#fff;border-radius:12px;padding:12px;margin-top:16px}
-  .card img{width:100%;border-radius:8px}
-  .dl{display:block;padding:10px;margin-top:8px;border-radius:8px;background:#eef2ff;color:#1e3a8a;text-decoration:none}
-  .ad{margin:16px 0;min-height:60px;text-align:center;color:#888;font-size:.8rem}
-  #msg{text-align:center;margin-top:12px}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#e8eefc;min-height:100vh;background:radial-gradient(ellipse at 50% 25%,#0b1d4a 0%,#040a1c 45%,#01030a 100%);overflow-x:hidden}
+.bg{position:fixed;inset:0;pointer-events:none;z-index:0}
+.bg svg{position:absolute;left:0;width:100%;filter:drop-shadow(0 0 10px #2563eb)}
+.bg .t{top:0;height:220px}
+.bg .b{bottom:0;height:240px}
+.wrap{position:relative;z-index:1;max-width:560px;margin:0 auto;padding:14px 16px 120px}
+header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px 10px 14px;border:1px solid rgba(59,130,246,.35);border-radius:22px;background:rgba(8,16,38,.65);backdrop-filter:blur(10px)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.35rem;color:#fff;text-decoration:none}
+.brand span,h1 span{background:linear-gradient(90deg,#38bdf8,#2563eb);-webkit-background-clip:text;background-clip:text;color:transparent}
+.mb{width:44px;height:44px;border-radius:12px;border:1px solid rgba(59,130,246,.35);background:rgba(8,16,38,.8);display:grid;place-items:center;cursor:pointer}
+.menu{display:none;margin-top:8px;border:1px solid rgba(59,130,246,.35);border-radius:16px;background:rgba(8,16,38,.92);overflow:hidden}
+.menu.open{display:block}
+.menu a{display:block;padding:14px 18px;color:#cfe0ff;text-decoration:none;border-bottom:1px solid rgba(59,130,246,.15)}
+.menu a:last-child{border-bottom:0}
+.hero{display:block;margin:18px auto 0;width:min(78%,300px);height:auto;filter:drop-shadow(0 0 22px rgba(37,99,235,.55))}
+h1{font-size:clamp(2.3rem,12vw,3.4rem);margin:6px 0 0;text-align:center;font-weight:800;letter-spacing:-.02em;color:#fff}
+.tag{display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 22px;color:#dbe7ff;font-style:italic;font-size:1.05rem}
+.tag:before,.tag:after{content:"";height:2px;flex:1;max-width:60px;background:linear-gradient(90deg,transparent,#2563eb)}
+.tag:after{transform:scaleX(-1)}
+.search{display:flex;gap:8px;padding:8px;border-radius:26px;border:1.5px solid #2f7bff;background:rgba(6,14,34,.7);box-shadow:0 0 22px rgba(37,99,235,.55),inset 0 0 14px rgba(37,99,235,.25)}
+.field{flex:1;display:flex;align-items:center;gap:10px;background:#fff;border-radius:18px;padding:0 14px;min-width:0}
+.field input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:1rem;padding:16px 0;color:#1e293b}
+.go{width:64px;border:0;border-radius:18px;background:linear-gradient(180deg,#38a1ff,#1d4ed8);display:grid;place-items:center;cursor:pointer;box-shadow:0 0 14px rgba(56,161,255,.6)}
+.go:disabled{opacity:.6}
+.msg{text-align:center;margin-top:14px;color:#9db6e8;min-height:1em}
+.msg.err{color:#ff8a8a}
+.card{margin-top:18px;border:1px solid rgba(59,130,246,.3);border-radius:18px;background:rgba(8,16,38,.7);padding:12px}
+.card img{width:100%;border-radius:12px;display:block}
+.card h3{font-size:1rem;line-height:1.4;margin:12px 2px}
+.dl{display:flex;align-items:center;gap:10px;padding:12px;margin-top:8px;border-radius:12px;background:rgba(37,99,235,.15);border:1px solid rgba(59,130,246,.3);color:#e8eefc;text-decoration:none}
+.dl .m{flex:1;font-size:.92rem}
+.dl .g{background:linear-gradient(180deg,#38a1ff,#1d4ed8);padding:7px 12px;border-radius:10px;font-weight:600;font-size:.85rem}
+.ad{margin:18px 0;text-align:center;overflow:hidden}
+.ad:empty{display:none}
+footer{margin-top:28px;text-align:center;font-size:.85rem;color:#7f93bd}
+footer a{color:#9db6e8;margin:0 8px;text-decoration:none}
+footer p{margin:10px 0 0}
 </style>
 </head>
 <body>
-<h1>iDownloadWeb</h1>
-<p style="text-align:center;margin-top:-8px;color:#555">ভিডিও / অডিও ডাউনলোডার</p>
-
-<div class="ad" id="ad-top"><!-- Adsterra banner code এখানে বসান --></div>
-
-<div class="row">
-  <input id="u" placeholder="ভিডিও লিংক পেস্ট করুন" autocomplete="off">
-  <button id="btn">Fetch</button>
+<div class="bg">
+  <svg class="t" viewBox="0 0 400 220" preserveAspectRatio="none">
+    <defs><linearGradient id="wg" x1="0" x2="1"><stop offset="0" stop-color="#1d4ed8" stop-opacity="0"/><stop offset=".5" stop-color="#38a1ff"/><stop offset="1" stop-color="#1d4ed8" stop-opacity="0"/></linearGradient></defs>
+    <path d="M-10 150C70 70 150 40 260 60S390 30 410 -10" fill="none" stroke="url(#wg)" stroke-width="3" vector-effect="non-scaling-stroke"/>
+    <path d="M-10 190C90 110 170 90 280 105S400 70 410 30" fill="none" stroke="url(#wg)" stroke-width="2" opacity=".6" vector-effect="non-scaling-stroke"/>
+  </svg>
+  <svg class="b" viewBox="0 0 400 240" preserveAspectRatio="none">
+    <defs><linearGradient id="wf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2563eb" stop-opacity=".35"/><stop offset="1" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
+    <path d="M-10 250V170C80 140 150 190 240 170S370 90 410 60V250Z" fill="url(#wf)"/>
+    <path d="M-10 170C80 140 150 190 240 170S370 90 410 60" fill="none" stroke="url(#wg)" stroke-width="3" vector-effect="non-scaling-stroke"/>
+    <path d="M-10 205C90 180 160 225 250 205S380 140 410 120" fill="none" stroke="url(#wg)" stroke-width="2" opacity=".6" vector-effect="non-scaling-stroke"/>
+  </svg>
 </div>
-<div id="msg"></div>
-<div id="out"></div>
 
-<div class="ad" id="ad-bottom"><!-- Adsterra banner code এখানে বসান --></div>
+<div class="wrap">
+  <header>
+    <a class="brand" href="/">
+      <svg width="34" height="34" viewBox="0 0 34 34"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs><path d="M7 4l22 13L7 30z" fill="url(#lg)" stroke="#7dd3fc" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <div>iDownload<span>Web</span></div>
+    </a>
+    <button class="mb" id="menuBtn" aria-label="Menu">
+      <svg width="24" height="24" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </header>
+  <nav class="menu" id="menu">
+    <a href="/">Home</a>
+    <a href="privacy.html">Privacy Policy</a>
+    <a href="terms.html">Terms of Service</a>
+  </nav>
+
+  <svg class="hero" viewBox="0 0 320 220" aria-hidden="true">
+    <defs>
+      <linearGradient id="cg" gradientUnits="userSpaceOnUse" x1="0" y1="40" x2="0" y2="170"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#1d4ed8"/></linearGradient>
+    </defs>
+    <g transform="rotate(-14 150 125)">
+      <ellipse cx="150" cy="125" rx="125" ry="38" fill="none" stroke="#38bdf8" stroke-width="3" opacity=".7"/>
+    </g>
+    <g fill="url(#cg)">
+      <circle cx="130" cy="95" r="52"/><circle cx="195" cy="110" r="42"/><circle cx="88" cy="125" r="34"/>
+      <rect x="70" y="110" width="170" height="50" rx="25"/>
+    </g>
+    <path d="M136 60H164V105H186L150 145L114 105H136Z" fill="#fff"/>
+    <g transform="rotate(-14 150 125)">
+      <path d="M25 125A125 38 0 0 0 275 125" fill="none" stroke="#7dd3fc" stroke-width="4" stroke-linecap="round"/>
+    </g>
+    <circle cx="70" cy="40" r="3" fill="#38bdf8"/><circle cx="260" cy="50" r="2.5" fill="#38bdf8"/><circle cx="40" cy="150" r="3" fill="#38bdf8"/><circle cx="285" cy="170" r="3" fill="#38bdf8"/>
+  </svg>
+
+  <h1>iDownload<span>Web</span></h1>
+  <div class="tag">Download Videos &amp; Audio Online</div>
+
+  <div class="ad" id="ad-top"><!-- Adsterra banner code here --></div>
+
+  <div class="search">
+    <div class="field">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+      <input id="u" type="text" inputmode="url" placeholder="Paste Video Link Here…" autocomplete="off">
+    </div>
+    <button class="go" id="btn" aria-label="Get download links">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>
+    </button>
+  </div>
+
+  <div class="msg" id="msg"></div>
+  <div id="out"></div>
+
+  <div class="ad" id="ad-mid"><!-- Adsterra banner code here --></div>
+  <div class="ad" id="ad-bottom"><!-- Adsterra banner code here --></div>
+
+  <footer>
+    <a href="privacy.html">Privacy Policy</a>
+    <a href="terms.html">Terms of Service</a>
+    <p>For personal use only. Please respect copyright.</p>
+    <p>© 2026 iDownloadWeb</p>
+  </footer>
+</div>
 
 <script>
 const API = "https://idownloadweb-api.onrender.com";
@@ -39,27 +133,43 @@ const $ = id => document.getElementById(id);
 const mb = b => b ? (b/1048576).toFixed(1) + " MB" : "";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-$("btn").onclick = async () => {
+$("menuBtn").onclick = () => $("menu").classList.toggle("open");
+
+async function go() {
   const url = $("u").value.trim();
   if (!url) return;
+  const btn = $("btn");
+  btn.disabled = true;
   $("out").innerHTML = "";
-  $("msg").textContent = "লোড হচ্ছে... (প্রথমবার ১ মিনিট লাগতে পারে)";
+  $("msg").className = "msg";
+  $("msg").textContent = "Fetching… the first request can take up to a minute.";
   try {
     const r = await fetch(`${API}/info?url=` + encodeURIComponent(url));
     const d = await r.json();
-    if (!r.ok) { $("msg").textContent = d.detail || "সমস্যা হয়েছে"; return; }
+    if (!r.ok) {
+      $("msg").className = "msg err";
+      $("msg").textContent = typeof d.detail === "string" ? d.detail : "Something went wrong. Please try again.";
+      return;
+    }
     $("msg").textContent = "";
-    const links = d.items.map(i =>
+    const links = (d.items || []).map(i =>
       `<a class="dl" href="${esc(i.url)}" target="_blank" rel="noopener">
-        ${i.kind === "audio" ? "🎵 অডিও" : "🎬 ভিডিও"} ${esc(i.quality)} · ${esc(i.ext)} ${mb(i.size)}
+        <span>${i.kind === "audio" ? "🎵" : "🎬"}</span>
+        <span class="m"><b>${i.kind === "audio" ? "Audio" : "Video"}</b> · ${esc(i.quality || "Standard")} · ${esc(i.ext)} ${mb(i.size)}</span>
+        <span class="g">Download</span>
       </a>`).join("");
     $("out").innerHTML = `<div class="card">
-      ${d.thumbnail ? `<img src="${esc(d.thumbnail)}" referrerpolicy="no-referrer">` : ""}
-      <h3>${esc(d.title)}</h3>${links || "কোনো ফরম্যাট পাওয়া যায়নি"}</div>`;
+      ${d.thumbnail ? `<img src="${esc(d.thumbnail)}" referrerpolicy="no-referrer" alt="">` : ""}
+      <h3>${esc(d.title)}</h3>${links || "No downloadable formats found."}</div>`;
   } catch (e) {
-    $("msg").textContent = "সার্ভারে সংযোগ হয়নি, আবার চেষ্টা করুন";
+    $("msg").className = "msg err";
+    $("msg").textContent = "Could not reach the server. Please try again.";
+  } finally {
+    btn.disabled = false;
   }
-};
+}
+$("btn").onclick = go;
+$("u").addEventListener("keydown", e => { if (e.key === "Enter") go(); });
 </script>
 </body>
 </html>
