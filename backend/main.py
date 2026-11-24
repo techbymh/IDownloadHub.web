@@ -45,9 +45,9 @@ def health():
 def info(url: str, request: Request):
     ip = request.headers.get("x-forwarded-for", request.client.host).split(",")[0].strip()
     if not rate_limit(ip):
-        raise HTTPException(429, "অনেক বেশি রিকোয়েস্ট, একটু পরে চেষ্টা করুন")
+        raise HTTPException(429, "Too many requests. Please try again in a minute.")
     if not allowed(url):
-        raise HTTPException(400, "এই লিংকটি সাপোর্টেড নয়")
+        raise HTTPException(400, "This link is not supported.")
 
     opts = {"quiet": True, "noplaylist": True, "socket_timeout": 20}
     cookies = os.getenv("COOKIES_FILE")
@@ -58,7 +58,7 @@ def info(url: str, request: Request):
         with yt_dlp.YoutubeDL(opts) as ydl:
             d = ydl.extract_info(url, download=False)
     except Exception:
-        raise HTTPException(400, "ভিডিও পাওয়া যায়নি (প্রাইভেট বা ব্লকড হতে পারে)")
+        raise HTTPException(400, "Video not found. It may be private or blocked.")
 
     items = []
     for f in d.get("formats", []):
