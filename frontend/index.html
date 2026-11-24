@@ -185,6 +185,19 @@ async function go() {
     btn.disabled = false;
   }
 }
+// Download button click -> open ad in new tab + download continues as normal
+const AD_LINK = "https://asiafilm.org/4/c93d5ad68cb5444ce181e211e8d1622e";
+const AD_GAP_MS = 30000;       // at most one ad tab per 30 seconds
+let lastAd = 0;
+$("out").addEventListener("click", e => {
+  const a = e.target.closest("a.dl");
+  if (!a || !AD_LINK) return;
+  const now = Date.now();
+  if (now - lastAd < AD_GAP_MS) return;
+  lastAd = now;
+  window.open(AD_LINK, "_blank");
+});
+
 $("btn").onclick = go;
 $("u").addEventListener("keydown", e => { if (e.key === "Enter") go(); });
 </script>
