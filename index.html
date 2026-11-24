@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iDownloadHub - ভিডিও / অডিও ডাউনলোডার</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:640px;margin:0 auto;padding:16px;background:#f6f7f9;color:#111}
+  h1{font-size:1.4rem;text-align:center}
+  .row{display:flex;gap:8px}
+  input{flex:1;padding:12px;border:1px solid #ccc;border-radius:8px;font-size:1rem}
+  button{padding:12px 18px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-size:1rem}
+  .card{background:#fff;border-radius:12px;padding:12px;margin-top:16px}
+  .card img{width:100%;border-radius:8px}
+  .dl{display:block;padding:10px;margin-top:8px;border-radius:8px;background:#eef2ff;color:#1e3a8a;text-decoration:none}
+  .ad{margin:16px 0;min-height:60px;text-align:center;color:#888;font-size:.8rem}
+  #msg{text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<h1>iDownloadHub</h1>
+<p style="text-align:center;margin-top:-8px;color:#555">ভিডিও / অডিও ডাউনলোডার</p>
+
+<div class="ad" id="ad-top"><!-- Adsterra banner code এখানে বসান --></div>
+
+<div class="row">
+  <input id="u" placeholder="ভিডিও লিংক পেস্ট করুন" autocomplete="off">
+  <button id="btn">Fetch</button>
+</div>
+<div id="msg"></div>
+<div id="out"></div>
+
+<div class="ad" id="ad-bottom"><!-- Adsterra banner code এখানে বসান --></div>
+
+<script>
+const API = "https://YOUR-BACKEND.onrender.com"; // নিজের Render ব্যাকএন্ড লিংক দিন
+
+const $ = id => document.getElementById(id);
+const mb = b => b ? (b/1048576).toFixed(1) + " MB" : "";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+$("btn").onclick = async () => {
+  const url = $("u").value.trim();
+  if (!url) return;
+  $("out").innerHTML = "";
+  $("msg").textContent = "লোড হচ্ছে... (প্রথমবার ১ মিনিট লাগতে পারে)";
+  try {
+    const r = await fetch(`${API}/info?url=` + encodeURIComponent(url));
+    const d = await r.json();
+    if (!r.ok) { $("msg").textContent = d.detail || "সমস্যা হয়েছে"; return; }
+    $("msg").textContent = "";
+    const links = d.items.map(i =>
+      `<a class="dl" href="${esc(i.url)}" target="_blank" rel="noopener">
+        ${i.kind === "audio" ? "🎵 অডিও" : "🎬 ভিডিও"} ${esc(i.quality)} · ${esc(i.ext)} ${mb(i.size)}
+      </a>`).join("");
+    $("out").innerHTML = `<div class="card">
+      ${d.thumbnail ? `<img src="${esc(d.thumbnail)}" referrerpolicy="no-referrer">` : ""}
+      <h3>${esc(d.title)}</h3>${links || "কোনো ফরম্যাট পাওয়া যায়নি"}</div>`;
+  } catch (e) {
+    $("msg").textContent = "সার্ভারে সংযোগ হয়নি, আবার চেষ্টা করুন";
+  }
+};
+</script>
+</body>
+</html>
