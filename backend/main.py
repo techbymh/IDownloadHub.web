@@ -1,9 +1,11 @@
-import os, time, threading
-from urllib.parse import urlparse
+import os, time, glob, shutil, tempfile, threading
+from urllib.parse import urlparse, quote
 from collections import defaultdict, deque, OrderedDict
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 import yt_dlp
 
 app = FastAPI()
@@ -11,33 +13,39 @@ app = FastAPI()
 ORIGINS = [o.strip().rstrip("/") for o in os.getenv("ALLOWED_ORIGIN", "*").split(",") if o.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["GET"])
 
+PUBLIC_API = os.getenv("PUBLIC_API", "https://idownloadweb-api.onrender.com").rstrip("/")
+MAX_MB = int(os.getenv("MAX_MB", "150"))
+MAX_SECONDS = int(os.getenv("MAX_SECONDS", "900"))
+
 ALLOWED_DOMAINS = (
     "youtube.com", "youtu.be", "tiktok.com", "instagram.com",
     "facebook.com", "fb.watch", "x.com", "twitter.com",
 )
 
-# ---------- Rate limit (per IP) ----------
+# ---------- Rate limit ----------
 hits = defaultdict(deque)
 hits_lock = threading.Lock()
 
-def rate_limit(ip, limit=10, window=60):
+def rate_limit(key, limit=10, window=60):
     now = time.time()
     with hits_lock:
-        q = hits[ip]
+        q = hits[key]
         while q and now - q[0] > window:
             q.popleft()
         if len(q) >= limit:
             return False
         q.append(now)
         if len(hits) > 5000:
-            stale = [k for k, v in hits.items() if not v or now - v[-1] > window]
-            for k in stale:
+            for k in [k for k, v in hits.items() if not v or now - v[-1] > window]:
                 del hits[k]
         return True
 
-# ---------- Cache (same link within 5 minutes) ----------
-CACHE_TTL = 300
-CACHE_MAX = 200
+def get_ip(request: Request):
+    fallback = request.client.host if request.client else "unknown"
+    return request.headers.get("x-forwarded-for", fallback).split(",")[0].strip()
+
+# ---------- Cache (same link, 5 minutes) ----------
+CACHE_TTL, CACHE_MAX = 300, 200
 cache = OrderedDict()
 cache_lock = threading.Lock()
 
@@ -58,8 +66,8 @@ def cache_set(url, data):
         while len(cache) > CACHE_MAX:
             cache.popitem(last=False)
 
-# ---------- Max simultaneous yt-dlp jobs ----------
-slots = threading.BoundedSemaphore(4)
+info_slots = threading.BoundedSemaphore(4)
+dl_slots = threading.BoundedSemaphore(2)
 
 def allowed(url):
     try:
@@ -71,16 +79,21 @@ def allowed(url):
     except Exception:
         return False
 
+def base_opts():
+    opts = {"quiet": True, "no_warnings": True, "noplaylist": True,
+            "socket_timeout": 20, "retries": 2}
+    cookies = os.getenv("COOKIES_FILE")
+    if cookies and os.path.exists(cookies):
+        opts["cookiefile"] = cookies
+    return opts
+
 @app.get("/")
 def health():
     return {"status": "ok"}
 
 @app.get("/info")
 def info(url: str, request: Request):
-    fallback_ip = request.client.host if request.client else "unknown"
-    ip = request.headers.get("x-forwarded-for", fallback_ip).split(",")[0].strip()
-
-    if not rate_limit(ip):
+    if not rate_limit(get_ip(request), 10, 60):
         raise HTTPException(429, "Too many requests. Please try again in a minute.")
     if not allowed(url):
         raise HTTPException(400, "This link is not supported.")
@@ -89,44 +102,91 @@ def info(url: str, request: Request):
     if cached:
         return cached
 
-    if not slots.acquire(blocking=False):
+    if not info_slots.acquire(blocking=False):
         raise HTTPException(503, "Server is busy. Please try again in a few seconds.")
-
     try:
-        opts = {"quiet": True, "noplaylist": True, "socket_timeout": 20}
-        cookies = os.getenv("COOKIES_FILE")
-        if cookies and os.path.exists(cookies):
-            opts["cookiefile"] = cookies
-
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
+            with yt_dlp.YoutubeDL(base_opts()) as ydl:
                 d = ydl.extract_info(url, download=False)
-        except Exception:
+        except Exception as e:
+            print("INFO ERROR:", repr(e)[:600], flush=True)
             raise HTTPException(400, "Video not found. It may be private or blocked.")
-
-        items = []
-        for f in d.get("formats", []):
-            if not f.get("url") or f.get("protocol") in ("m3u8", "m3u8_native"):
-                continue
-            has_v = f.get("vcodec") not in (None, "none")
-            has_a = f.get("acodec") not in (None, "none")
-            if has_v and has_a:
-                kind = "video"
-            elif has_a:
-                kind = "audio"
-            else:
-                continue
-            items.append({
-                "kind": kind,
-                "ext": f.get("ext"),
-                "quality": f.get("format_note") or f.get("resolution") or "",
-                "size": f.get("filesize") or f.get("filesize_approx"),
-                "url": f["url"],
-            })
-
-        result = {"title": d.get("title"), "thumbnail": d.get("thumbnail"), "items": items}
     finally:
-        slots.release()
+        info_slots.release()
 
+    dur = d.get("duration")
+    if dur and dur > MAX_SECONDS:
+        raise HTTPException(400, f"Video is too long (limit {MAX_SECONDS // 60} minutes).")
+
+    fmts = d.get("formats") or []
+    has_video = any(f.get("vcodec") not in (None, "none") for f in fmts)
+    has_audio = any(f.get("acodec") not in (None, "none") for f in fmts)
+    heights = sorted({f["height"] for f in fmts
+                      if f.get("height") and f.get("vcodec") not in (None, "none")}, reverse=True)
+    heights = [h for h in heights if h <= 1080][:4] or heights[:1]
+
+    q = quote(url, safe="")
+    items = []
+    for h in heights:
+        items.append({"kind": "video", "ext": "mp4", "quality": f"{h}p", "size": None,
+                      "url": f"{PUBLIC_API}/download?url={q}&kind=video&height={h}"})
+    if not heights and has_video:
+        items.append({"kind": "video", "ext": "mp4", "quality": "Best", "size": None,
+                      "url": f"{PUBLIC_API}/download?url={q}&kind=video&height=0"})
+    if has_audio:
+        items.append({"kind": "audio", "ext": "m4a", "quality": "Best", "size": None,
+                      "url": f"{PUBLIC_API}/download?url={q}&kind=audio"})
+
+    result = {"title": d.get("title"), "thumbnail": d.get("thumbnail"), "items": items}
     cache_set(url, result)
     return result
+
+@app.get("/download")
+def download(url: str, request: Request, kind: str = "video", height: int = 0):
+    if not rate_limit("dl:" + get_ip(request), 5, 60):
+        raise HTTPException(429, "Too many downloads. Please try again in a minute.")
+    if not allowed(url):
+        raise HTTPException(400, "This link is not supported.")
+    if kind not in ("video", "audio"):
+        raise HTTPException(400, "Invalid request.")
+    if not dl_slots.acquire(blocking=False):
+        raise HTTPException(503, "Server is busy. Please try again in a few seconds.")
+
+    tmp = tempfile.mkdtemp(prefix="dl_")
+    ok = False
+    try:
+        opts = base_opts()
+        opts["outtmpl"] = os.path.join(tmp, "%(id)s.%(ext)s")
+        opts["max_filesize"] = MAX_MB * 1024 * 1024
+        if kind == "audio":
+            opts["format"] = "bestaudio[ext=m4a]/bestaudio/best"
+        else:
+            opts["merge_output_format"] = "mp4"
+            if height > 0:
+                opts["format"] = (f"bv*[height<={height}][vcodec^=avc1]+ba[ext=m4a]/"
+                                  f"bv*[height<={height}]+ba/b[height<={height}]/b")
+            else:
+                opts["format"] = "bv*[vcodec^=avc1]+ba[ext=m4a]/bv*+ba/b"
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                d = ydl.extract_info(url, download=True)
+        except Exception as e:
+            print("DOWNLOAD ERROR:", repr(e)[:600], flush=True)
+            raise HTTPException(400, "Download failed. The video may be private or blocked.")
+
+        files = [p for p in glob.glob(os.path.join(tmp, "*"))
+                 if not p.endswith((".part", ".ytdl", ".temp"))]
+        if not files:
+            raise HTTPException(413, f"File is too large (limit {MAX_MB} MB) or unavailable.")
+        path = max(files, key=os.path.getsize)
+        ok = True
+    finally:
+        dl_slots.release()
+        if not ok:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    title = (d.get("title") or "video")
+    name = "".join(c for c in title if c.isalnum() or c in " -_")[:60].strip() or "video"
+    ext = os.path.splitext(path)[1] or ".mp4"
+    return FileResponse(path, filename=f"{name}{ext}",
+                        background=BackgroundTask(shutil.rmtree, tmp, True))
