@@ -100,7 +100,7 @@ footer p{margin:10px 0 0}
   <h1>iDownload<span>Web</span></h1>
   <div class="tag">Download Videos &amp; Audio Online</div>
 
-  <div class="ad" id="ad-top"><!-- Adsterra banner code here --></div>
+  <div class="ad" id="ad-top"><!-- top ad slot (empty) --></div>
 
   <div class="search">
     <div class="field">
@@ -115,8 +115,25 @@ footer p{margin:10px 0 0}
   <div class="msg" id="msg"></div>
   <div id="out"></div>
 
-  <div class="ad" id="ad-mid"><!-- Adsterra banner code here --></div>
-  <div class="ad" id="ad-bottom"><!-- Adsterra banner code here --></div>
+  <!-- Ad 2: 300x250 banner (below download results) -->
+  <div class="ad" id="ad-mid">
+    <script>
+      atOptions = {
+        'key' : '004c534b85caf088ffbf235e7fc8bf0c',
+        'format' : 'iframe',
+        'height' : 250,
+        'width' : 300,
+        'params' : {}
+      };
+    </script>
+    <script data-cfasync="false" src="https://bellnewyork.org/22/004c534b85caf088ffbf235e7fc8bf0c"></script>
+  </div>
+
+  <!-- Ad 3: Native banner (above footer) -->
+  <div class="ad" id="ad-bottom">
+    <script async fetchpriority="high" data-cfasync="false" src="https://bellnewyork.org/21/74bef2a6dfd005c9773fe3e9ee5c7f77"></script>
+    <div id="container-74bef2a6dfd005c9773fe3e9ee5c7f77"></div>
+  </div>
 
   <footer>
     <a href="privacy.html">Privacy Policy</a>
@@ -171,5 +188,8 @@ async function go() {
 $("btn").onclick = go;
 $("u").addEventListener("keydown", e => { if (e.key === "Enter") go(); });
 </script>
+
+<!-- Ad 1: site-wide script (just before </body>) -->
+<script data-cfasync="false" src="https://bellnewyork.org/14/5631a96c758880e1dfca253959e9827f"></script>
 </body>
 </html>
