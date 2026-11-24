@@ -8,8 +8,8 @@ import yt_dlp
 
 app = FastAPI()
 
-ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "*")
-app.add_middleware(CORSMiddleware, allow_origins=[ALLOWED_ORIGIN], allow_methods=["GET"])
+ORIGINS = [o.strip().rstrip("/") for o in os.getenv("ALLOWED_ORIGIN", "*").split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["GET"])
 
 ALLOWED_DOMAINS = (
     "youtube.com", "youtu.be", "tiktok.com", "instagram.com",
