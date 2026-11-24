@@ -1,2 +1,5 @@
-# IDownloadHub.web
-Public Video downloader
+
+# iDownloadHub
+
+Backend: FastAPI + yt-dlp (backend/)
+Frontend: static HTML (frontend/)
