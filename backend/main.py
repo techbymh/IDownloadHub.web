@@ -89,7 +89,8 @@ def allowed(url):
 
 def base_opts():
     # No cookies here: cookies are only used as a retry (see run_ydl)
-    opts = {"quiet": True, "no_warnings": True, "noplaylist": True,
+    # no_warnings=False: TEMPORARY, so yt-dlp warnings show in Render logs
+    opts = {"quiet": True, "no_warnings": False, "noplaylist": True,
             "socket_timeout": 20, "retries": 2}
     # YouTube needs a JS runtime to solve challenges
     if shutil.which("deno"):
