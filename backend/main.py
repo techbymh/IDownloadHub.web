@@ -8,6 +8,11 @@ from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 import yt_dlp
 
+# Debug: yt-dlp version and JS runtimes (see Render logs after deploy)
+print("YT-DLP VERSION:", yt_dlp.version.__version__,
+      "| node:", shutil.which("node"),
+      "| deno:", shutil.which("deno"), flush=True)
+
 app = FastAPI()
 
 ORIGINS = [o.strip().rstrip("/") for o in os.getenv("ALLOWED_ORIGIN", "*").split(",") if o.strip()]
@@ -84,8 +89,14 @@ def allowed(url):
 
 def base_opts():
     # No cookies here: cookies are only used as a retry (see run_ydl)
-    return {"quiet": True, "no_warnings": True, "noplaylist": True,
+    opts = {"quiet": True, "no_warnings": True, "noplaylist": True,
             "socket_timeout": 20, "retries": 2}
+    # YouTube needs a JS runtime to solve challenges
+    if shutil.which("deno"):
+        opts["js_runtimes"] = {"deno": {}}
+    elif shutil.which("node"):
+        opts["js_runtimes"] = {"node": {}}
+    return opts
 
 def clean_dir(outdir):
     for f in glob.glob(os.path.join(outdir, "*")):
@@ -138,7 +149,7 @@ def run_ydl(url, download=False, extra=None, outdir=None):
             print("ERROR:", repr(e2)[:600], flush=True)
             raise
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def health():
     return {"status": "ok"}
 
