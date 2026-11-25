@@ -17,6 +17,9 @@ PUBLIC_API = os.getenv("PUBLIC_API", "https://idownloadweb-api.onrender.com").rs
 MAX_MB = int(os.getenv("MAX_MB", "150"))
 MAX_SECONDS = int(os.getenv("MAX_SECONDS", "900"))
 
+# Render Secret File (read-only). Same path as the Telegram bot.
+COOKIE_SRC = os.getenv("COOKIES_FILE", "/etc/secrets/cookies.txt")
+
 ALLOWED_DOMAINS = (
     "youtube.com", "youtu.be", "tiktok.com", "instagram.com",
     "facebook.com", "fb.watch", "x.com", "twitter.com",
@@ -80,12 +83,60 @@ def allowed(url):
         return False
 
 def base_opts():
-    opts = {"quiet": True, "no_warnings": True, "noplaylist": True,
+    # No cookies here: cookies are only used as a retry (see run_ydl)
+    return {"quiet": True, "no_warnings": True, "noplaylist": True,
             "socket_timeout": 20, "retries": 2}
-    cookies = os.getenv("COOKIES_FILE")
-    if cookies and os.path.exists(cookies):
-        opts["cookiefile"] = cookies
-    return opts
+
+def clean_dir(outdir):
+    for f in glob.glob(os.path.join(outdir, "*")):
+        try:
+            os.remove(f)
+        except Exception:
+            pass
+
+def run_ydl(url, download=False, extra=None, outdir=None):
+    """Try WITHOUT cookies first. If it fails and the cookie file exists,
+    retry WITH cookies. Full errors go to the Render logs only."""
+
+    def attempt(use_cookies):
+        opts = base_opts()
+        opts.update(extra or {})
+        cpath = None
+        if use_cookies:
+            # yt-dlp may write to the cookie file, and /etc/secrets is read-only,
+            # so use a private temporary copy for every attempt.
+            fd, cpath = tempfile.mkstemp(prefix="ck_", suffix=".txt")
+            os.close(fd)
+            shutil.copy(COOKIE_SRC, cpath)
+            opts["cookiefile"] = cpath
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                return ydl.extract_info(url, download=download)
+        finally:
+            if cpath:
+                try:
+                    os.remove(cpath)
+                except Exception:
+                    pass
+
+    try:
+        d = attempt(False)
+        print("FETCH OK: without cookies", flush=True)
+        return d
+    except Exception as e:
+        if not os.path.exists(COOKIE_SRC):
+            print("ERROR (no cookie file):", repr(e)[:600], flush=True)
+            raise
+        print("RETRY WITH COOKIES. First error:", repr(e)[:300], flush=True)
+        if outdir:
+            clean_dir(outdir)
+        try:
+            d = attempt(True)
+            print("FETCH OK: with cookies", flush=True)
+            return d
+        except Exception as e2:
+            print("ERROR:", repr(e2)[:600], flush=True)
+            raise
 
 @app.get("/")
 def health():
@@ -106,8 +157,7 @@ def info(url: str, request: Request):
         raise HTTPException(503, "Server is busy. Please try again in a few seconds.")
     try:
         try:
-            with yt_dlp.YoutubeDL(base_opts()) as ydl:
-                d = ydl.extract_info(url, download=False)
+            d = run_ydl(url, download=False)
         except Exception as e:
             print("INFO ERROR:", repr(e)[:600], flush=True)
             raise HTTPException(400, "Video not found. It may be private or blocked.")
@@ -155,21 +205,21 @@ def download(url: str, request: Request, kind: str = "video", height: int = 0):
     tmp = tempfile.mkdtemp(prefix="dl_")
     ok = False
     try:
-        opts = base_opts()
-        opts["outtmpl"] = os.path.join(tmp, "%(id)s.%(ext)s")
-        opts["max_filesize"] = MAX_MB * 1024 * 1024
+        extra = {
+            "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
+            "max_filesize": MAX_MB * 1024 * 1024,
+        }
         if kind == "audio":
-            opts["format"] = "bestaudio[ext=m4a]/bestaudio/best"
+            extra["format"] = "bestaudio[ext=m4a]/bestaudio/best"
         else:
-            opts["merge_output_format"] = "mp4"
+            extra["merge_output_format"] = "mp4"
             if height > 0:
-                opts["format"] = (f"bv*[height<={height}][vcodec^=avc1]+ba[ext=m4a]/"
-                                  f"bv*[height<={height}]+ba/b[height<={height}]/b")
+                extra["format"] = (f"bv*[height<={height}][vcodec^=avc1]+ba[ext=m4a]/"
+                                   f"bv*[height<={height}]+ba/b[height<={height}]/b")
             else:
-                opts["format"] = "bv*[vcodec^=avc1]+ba[ext=m4a]/bv*+ba/b"
+                extra["format"] = "bv*[vcodec^=avc1]+ba[ext=m4a]/bv*+ba/b"
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                d = ydl.extract_info(url, download=True)
+            d = run_ydl(url, download=True, extra=extra, outdir=tmp)
         except Exception as e:
             print("DOWNLOAD ERROR:", repr(e)[:600], flush=True)
             raise HTTPException(400, "Download failed. The video may be private or blocked.")
